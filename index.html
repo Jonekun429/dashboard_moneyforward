@@ -43,6 +43,8 @@
         .uph-t{font-size:17px;font-weight:800;margin:12px 0 6px}
         .uph-s{font-size:13px;color:var(--muted)}
         .uph-btn{display:inline-block;margin-top:16px;padding:8px 20px;background:var(--c);color:#fff;border-radius:8px;font-size:13px;font-weight:700;pointer-events:none}
+        .demo-btn{padding:10px 28px;border-radius:10px;border:2px solid var(--c);background:transparent;color:var(--c);font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;font-family:inherit}
+        .demo-btn:hover{background:var(--c);color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,93,77,.2)}
 
         /* Card */
         .card{background:var(--surface);border-radius:var(--R);border:1.5px solid var(--border);overflow:hidden}
@@ -168,12 +170,18 @@
             <button class="b-pdf" id="pb" disabled onclick="exportPDF()"><span>📄</span><span>PDF出力</span></button>
         </div>
     </div>
-    <div id="empty" class="uph" ondragover="dh(event,1)" ondragleave="dh(event,0)" ondrop="dd(event)">
-        <input type="file" id="fi2" multiple accept=".csv">
-        <div style="font-size:40px">📂</div>
-        <div class="uph-t">CSVファイルをアップロード</div>
-        <div class="uph-s">マネーフォワード等のフォーマットに対応。複数ファイルOK。</div>
-        <div class="uph-btn">ファイルを選択 or ドラッグ＆ドロップ</div>
+    <div id="empty">
+        <div class="uph" ondragover="dh(event,1)" ondragleave="dh(event,0)" ondrop="dd(event)">
+            <input type="file" id="fi2" multiple accept=".csv">
+            <div style="font-size:40px">📂</div>
+            <div class="uph-t">CSVファイルをアップロード</div>
+            <div class="uph-s">マネーフォワード等のフォーマットに対応。複数ファイルOK。</div>
+            <div class="uph-btn">ファイルを選択 or ドラッグ＆ドロップ</div>
+        </div>
+        <div style="text-align:center;margin-top:20px">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:10px">CSVがなくても試せます</p>
+            <button class="demo-btn" onclick="loadDemo()">▶ デモデータで体験する</button>
+        </div>
     </div>
     <div id="dash" style="display:none">
         <div class="sum-r">
@@ -491,6 +499,96 @@ async function exportPDF(){
         const p=$('ps').value;pdf.save(`Money_Tracker_${p==='all'?'全期間':p+'年'}.pdf`);
     }catch(e){console.error(e);alert('PDF出力に失敗しました。')}
     $('pov').classList.remove('on');
+}
+
+/* ══════ DEMO DATA ══════ */
+function loadDemo(){
+    D=[];
+    const rows=[];
+    let id=1;
+    const y=2025;
+
+    function push(calc,date,content,amount,org,cat,sub){
+        rows.push({
+            '計算対象':calc,
+            '日付':date,
+            '内容':content,
+            '金額（円）':amount,
+            '保有金融機関':org,
+            '大項目':cat,
+            '中項目':sub,
+            'メモ':'',
+            '振替':0,
+            'ID':'demo-'+(id++)
+        });
+    }
+
+    for(let m=1;m<=12;m++){
+        const mm=String(m).padStart(2,'0');
+        const d=dy=>y+'/'+mm+'/'+String(dy).padStart(2,'0');
+        const rnd=(a,b)=>Math.round(a+Math.random()*(b-a));
+
+        // ── 収入 ──
+        push(1,d(25),'給与 エイベックス(カ',rnd(330000,350000),'三井住友銀行','収入','給与');
+        if(m===6||m===12) push(1,d(10),'賞与 エイベックス(カ',rnd(400000,500000),'三井住友銀行','収入','給与');
+        if(Math.random()<0.25) push(1,d(rnd(10,20)),'配当金 三菱UFJ',rnd(800,2500),'楽天証券','収入','配当所得');
+        if(Math.random()<0.25) push(1,d(rnd(10,20)),'配当金 NEXT FUNDS',rnd(300,1500),'楽天証券','収入','配当所得');
+        if(Math.random()<0.3) push(1,d(rnd(5,20)),'メルカリ売上',rnd(1000,8000),'メルカリ','収入','その他入金');
+
+        // ── 住宅 ──
+        push(1,d(27),'家賃 1月分',  -85000,'三井住友銀行','住宅','家賃');
+
+        // ── 水道・光熱費 ──
+        const elec=m>=6&&m<=9?rnd(8000,12000):rnd(4000,7000);
+        push(1,d(rnd(8,15)),'東京電力',-elec,'JCBカード','水道・光熱費','電気代');
+        push(1,d(rnd(8,15)),'東京ガス',-rnd(2000,5000),'JCBカード','水道・光熱費','ガス・灯油代');
+        if(m%2===1) push(1,d(rnd(10,20)),'東京都水道局',-rnd(2500,4000),'三井住友銀行','水道・光熱費','水道代');
+
+        // ── 通信費 ──
+        push(1,d(1),'ahamo',-2970,'JCBカード','通信費','携帯電話');
+        push(1,d(1),'NURO光',-5200,'JCBカード','通信費','インターネット');
+
+        // ── 食費 ──
+        for(let i=0;i<rnd(3,5);i++) push(1,d(rnd(1,28)),'イオン',-rnd(2000,6000),'JCBカード','食費','食料品');
+        for(let i=0;i<rnd(4,8);i++) push(1,d(rnd(1,28)),'セブンイレブン',-rnd(200,1200),'JCBカード','食費','コンビニ');
+        for(let i=0;i<rnd(1,3);i++) push(1,d(rnd(1,28)),'松屋',-rnd(500,900),'JCBカード','食費','外食');
+        for(let i=0;i<rnd(1,3);i++) push(1,d(rnd(1,28)),'スターバックス',-rnd(400,700),'JCBカード','食費','カフェ');
+        if(Math.random()<0.5) push(1,d(rnd(1,28)),'サイゼリヤ',-rnd(800,1500),'JCBカード','食費','外食');
+
+        // ── 交際費 ──
+        for(let i=0;i<rnd(1,3);i++) push(1,d(rnd(1,28)),'居酒屋',-rnd(3000,6000),'JCBカード','交際費','飲み会');
+        if(Math.random()<0.3) push(1,d(rnd(1,28)),'Amazon ギフト',-rnd(2000,5000),'JCBカード','交際費','プレゼント');
+
+        // ── 日用品 ──
+        for(let i=0;i<rnd(1,3);i++) push(1,d(rnd(1,28)),'マツモトキヨシ',-rnd(500,2500),'JCBカード','日用品','日用品');
+        if(Math.random()<0.4) push(1,d(rnd(1,28)),'ユニクロ',-rnd(2000,8000),'JCBカード','日用品','衣服');
+
+        // ── 交通費 ──
+        push(1,d(rnd(1,10)),'Suica チャージ',-rnd(3000,6000),'三井住友銀行','交通費','電車');
+
+        // ── 教養・教育 ──
+        if(Math.random()<0.6) push(1,d(rnd(1,28)),'Amazon Kindle',-rnd(500,2000),'JCBカード','教養・教育','書籍');
+
+        // ── 健康・医療 ──
+        push(1,d(5),'エニタイムフィットネス',-7500,'JCBカード','健康・医療','フィットネス');
+        if(Math.random()<0.25) push(1,d(rnd(1,28)),'内科クリニック',-rnd(1500,4000),'JCBカード','健康・医療','医療費');
+
+        // ── 趣味・娯楽 ──
+        push(1,d(1),'Netflix',-1490,'JCBカード','趣味・娯楽','サブスク');
+        push(1,d(1),'Spotify',-980,'JCBカード','趣味・娯楽','サブスク');
+
+        // ── 保険 ──
+        push(1,d(27),'アフラック',-3200,'三井住友銀行','保険','生命保険');
+
+        // ── 税金 ──
+        push(1,d(25),'住民税',-rnd(14000,16000),'三井住友銀行','税・社会保障','住民税');
+
+        // ── 特別な支出（散発）──
+        if(Math.random()<0.2) push(1,d(rnd(1,28)),'ヨドバシカメラ',-rnd(5000,40000),'JCBカード','特別な支出','家電');
+        if(Math.random()<0.15) push(1,d(rnd(1,28)),'じゃらん',-rnd(15000,50000),'JCBカード','特別な支出','旅行');
+    }
+
+    addData(rows);
 }
 </script>
 </body>
