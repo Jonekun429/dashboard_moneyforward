@@ -118,7 +118,7 @@
         .modal{background:var(--surface);border-radius:20px;width:92%;max-width:680px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 48px rgba(0,0,0,.15);animation:mIn .2s ease}
         .m-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1.5px solid var(--border);flex-shrink:0}
         .m-ttl{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
-        .m-x{width:34px;height:34px;border-radius:10px;border:none;background:var(--bg);color:var(--sub);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+        .m-x{width:34px;height:34px;border-radius:10px;border:none;background:var(--bg);color:var(--sub);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;font-weight:bold}
         .m-x:hover{background:#e2ebe8;color:var(--text)}
         .m-body{padding:20px 22px;overflow-y:auto;flex:1}
 
@@ -214,7 +214,13 @@
 
 <div class="mo-ov" id="ov" onclick="if(event.target===this)closeM()">
     <div class="modal" onclick="event.stopPropagation()">
-        <div class="m-hdr"><div class="m-ttl" id="mTtl">内訳</div><button class="m-x" onclick="closeM()">✕</button></div>
+        <div class="m-hdr">
+            <div style="display:flex;align-items:center;gap:12px">
+                <button id="mBack" class="m-x" style="display:none;font-size:18px;" onclick="if(backAction)backAction()">←</button>
+                <div class="m-ttl" id="mTtl">内訳</div>
+            </div>
+            <button class="m-x" onclick="closeM()">✕</button>
+        </div>
         <div class="m-body" id="mBody"></div>
     </div>
 </div>
@@ -222,9 +228,17 @@
 
 <script>
 let D=[],F=[],CI=null,incCat={},expCat={};
+let backAction=null; // 追加: 戻るボタン用のアクション保持
+
 const $=id=>document.getElementById(id);
 const fmt=n=>'¥'+Math.abs(n).toLocaleString('ja-JP');
 const esc=s=>s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+
+// 追加: 戻るボタンの表示・非表示とアクションセット
+function setBack(fn) {
+    backAction = fn;
+    $('mBack').style.display = fn ? 'flex' : 'none';
+}
 
 /* ── File I/O ── */
 function pf(files){
@@ -286,27 +300,65 @@ function upd(period){
 
 /* ══════ MODAL ══════ */
 function showM(){$('ov').classList.add('on');document.body.style.overflow='hidden'}
-function closeM(){$('ov').classList.remove('on');document.body.style.overflow=''}
+// 修正: 閉じる時に戻るアクションをリセット
+function closeM(){$('ov').classList.remove('on');document.body.style.overflow='';setBack(null);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
+
+// 追加: 収入の名称を「中項目」優先、なければ「内容」で取得するロジック（その他入金などの丸めも回避）
+function getIncName(r) {
+    const sub = r['中項目'] || '';
+    const con = r['内容'] || '';
+    const cat = r['大項目'] || '';
+    if (sub && sub !== '未分類' && sub !== '不明' && sub !== 'その他入金') return sub;
+    if (con && con !== '未分類' && con !== '不明') return con;
+    if (cat && cat !== '未分類' && cat !== '不明') return cat;
+    return '未分類';
+}
 
 /* ─── L1: 大項目 list ─── */
 function openL1(type){
     $('mTtl').textContent=type==='income'?'💰 収入の内訳':'📊 支出の内訳';
-    const cats=type==='income'?incCat:expCat;
-    const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+    setBack(null); // トップレベルなので戻るボタン非表示
     const body=$('mBody');
-    if(!sorted.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:40px 0">データなし</p>';showM();return}
-    const total=sorted.reduce((s,i)=>s+i[1],0);
-    body.innerHTML=sorted.map(([name,val])=>{
-        const pct=((val/total)*100).toFixed(1);
-        return drRow(name,fmt(val),pct+'%','📁','',`openL2('${esc(name)}','${type}')`);
-    }).join('');
-    showM();
+
+    if (type === 'income') {
+        // 修正: 収入の場合は大項目を無視し、中項目・内容で直接グループ化
+        const byItem = {};
+        F.forEach(r => {
+            const a = r['金額（円）'], t = r['計算対象'] === 1;
+            if (a > 0 && t) {
+                const name = getIncName(r);
+                if (!byItem[name]) byItem[name] = {c:0, a:0};
+                byItem[name].c++;
+                byItem[name].a += a;
+            }
+        });
+        const sorted = Object.entries(byItem).sort((a,b)=>b[1].a - a[1].a);
+        if(!sorted.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:40px 0">データなし</p>';showM();return}
+        const total = sorted.reduce((s,i)=>s+i[1].a, 0);
+        body.innerHTML = sorted.map(([name, st]) => {
+            const pct = ((st.a/total)*100).toFixed(1);
+            return drRow(name, fmt(st.a), pct+'%  ·  '+st.c+'件', '💰', '', `openL2Inc('${esc(name)}')`);
+        }).join('');
+        showM();
+    } else {
+        // 支出は従来通りの大項目グループ化
+        const cats=expCat;
+        const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+        if(!sorted.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:40px 0">データなし</p>';showM();return}
+        const total=sorted.reduce((s,i)=>s+i[1],0);
+        body.innerHTML=sorted.map(([name,val])=>{
+            const pct=((val/total)*100).toFixed(1);
+            return drRow(name,fmt(val),pct+'%','📁','',`openL2('${esc(name)}','${type}')`);
+        }).join('');
+        showM();
+    }
 }
 
-/* ─── L2: 中項目 list ─── */
+/* ─── L2: 中項目 list (Expense) ─── */
 function openL2(catName,type){
     $('mTtl').textContent=catName;
+    setBack(() => openL1(type)); // 戻るアクションをセット
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1,c=r['大項目']||'不明';
         return type==='income'?(a>0&&t&&c===catName):(a<0&&t&&c===catName);
@@ -322,9 +374,10 @@ function openL2(catName,type){
     }).join('');
 }
 
-/* ─── L3: 月別フォルダ（大項目+中項目フィルタ）─── */
+/* ─── L3: 月別フォルダ (Expense) ─── */
 function openL3Cat(catName,subName,type){
     $('mTtl').textContent=subName;
+    setBack(() => openL2(catName, type)); // 戻るアクションをセット
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1,c=r['大項目']||'不明',s=r['中項目']||'不明';
         return type==='income'?(a>0&&t&&c===catName&&s===subName):(a<0&&t&&c===catName&&s===subName);
@@ -338,8 +391,9 @@ function openL3Cat(catName,subName,type){
     });
 }
 
-/* ─── L4: 明細（大項目+中項目+月）─── */
+/* ─── L4: 明細 (Expense) ─── */
 function openL4Cat(catName,subName,month,type){
+    setBack(() => openL3Cat(catName, subName, type)); // 戻るアクションをセット
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1,c=r['大項目']||'不明',s=r['中項目']||'不明',mk=(r['日付']||'').substring(0,7);
         return mk===month&&t&&c===catName&&s===subName&&(type==='income'?a>0:a<0);
@@ -352,9 +406,39 @@ function openL4Cat(catName,subName,month,type){
     renderTxnTable($('mBody'),txns,bc);
 }
 
+/* ─── 追加: 収入専用のドリルダウン（L2: 月別フォルダ） ─── */
+function openL2Inc(itemName) {
+    $('mTtl').textContent = itemName;
+    setBack(() => openL1('income')); // L1収入に戻る
+    const txns = F.filter(r => {
+        const a = r['金額（円）'], t = r['計算対象'] === 1;
+        return a > 0 && t && getIncName(r) === itemName;
+    });
+    const bc=`<div class="bc"><button class="bc-b" onclick="openL1('income')">← 収入</button><span class="bc-s">›</span><span class="bc-c">${itemName}</span></div>`;
+    renderMonthFolders($('mBody'), txns, bc, function(month){
+        return `openL3Inc('${esc(itemName)}', '${month}')`;
+    });
+}
+
+/* ─── 追加: 収入専用のドリルダウン（L3: 明細） ─── */
+function openL3Inc(itemName, month) {
+    const txns = F.filter(r => {
+        const a = r['金額（円）'], t = r['計算対象'] === 1;
+        const mk = (r['日付']||'').substring(0,7);
+        return a > 0 && t && mk === month && getIncName(r) === itemName;
+    });
+    setBack(() => openL2Inc(itemName)); // L2の月一覧に戻る
+    const bc=`<div class="bc">
+        <button class="bc-b" onclick="openL1('income')">← 収入</button><span class="bc-s">›</span>
+        <button class="bc-b" onclick="openL2Inc('${esc(itemName)}')">${itemName}</button><span class="bc-s">›</span>
+        <span class="bc-c">${month}</span></div>`;
+    renderTxnTable($('mBody'), txns, bc);
+}
+
 /* ─── Ranking drill: L1→months→明細 ─── */
 function openRkL1(itemName,filterType){
     $('mTtl').textContent='📁 '+itemName;
+    setBack(null);
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1;
         if(!t||a>=0)return false;
@@ -368,6 +452,7 @@ function openRkL1(itemName,filterType){
 }
 
 function openRkL2(itemName,month,filterType){
+    setBack(() => openRkL1(itemName, filterType));
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1,mk=(r['日付']||'').substring(0,7);
         if(mk!==month||!t||a>=0)return false;
