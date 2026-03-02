@@ -97,15 +97,17 @@
         .fc-v{font-family:'DM Sans';font-size:24px;font-weight:800;letter-spacing:-.5px}
         .fc-n{font-size:11px;color:var(--muted);margin-top:3px}
 
-        /* Monthly */
-        .mo{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #f1f5f3;font-size:13px}
+        /* Monthly - タップ可能に修正 */
+        .mo{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid #f1f5f3;font-size:13px; cursor:pointer; transition:background .15s; border-radius:8px; margin-bottom:2px;}
+        .mo:hover{background:rgba(0,93,77,.04);}
         .mo:last-child{border-bottom:none}
         .mo-l{font-weight:600;min-width:70px}
         .mo-a{display:flex;gap:14px;margin-left:auto;font-family:'DM Sans';font-weight:600;font-size:12px}
         .mo-i{color:var(--green)}.mo-e{color:var(--red)}
 
-        /* Top cat */
-        .tc{padding:12px;border-radius:12px;background:var(--bg);margin-bottom:8px}
+        /* Top cat - タップ可能に修正 */
+        .tc{padding:12px;border-radius:12px;background:var(--bg);margin-bottom:8px; cursor:pointer; transition:all .2s; border:1.5px solid transparent;}
+        .tc:hover{border-color:var(--c); background:var(--surface); box-shadow:0 4px 12px rgba(0,0,0,.05); transform:translateY(-1px);}
         .tc-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
         .tc-n{font-weight:700;font-size:14px}
         .tc-v{font-family:'DM Sans';font-weight:800;font-size:15px}
@@ -134,7 +136,7 @@
         .m-st-l{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
         .m-st-v{font-family:'DM Sans';font-size:20px;font-weight:800;margin-top:2px}
 
-        /* Drill row — matches screenshot style */
+        /* Drill row */
         .dr{display:flex;align-items:center;padding:16px 18px;border-radius:12px;margin-bottom:4px;cursor:pointer;transition:all .15s;border:1.5px solid transparent}
         .dr:hover{background:rgba(0,93,77,.03);border-color:var(--border)}
         .dr:active{transform:scale(.99)}
@@ -211,8 +213,8 @@
             <p style="font-size:11px;color:var(--sub);margin-top:14px;padding:10px;background:var(--bg);border-radius:8px">💡 推奨年収は支出の1.3倍。税金・社会保険料・貯金・余裕資金を考慮。</p>
         </div></div>
         <div class="g2">
-            <div class="card"><div class="card-h">📊 月別サマリー</div><div class="card-b"><div id="mSum" class="scr"></div></div></div>
-            <div class="card"><div class="card-h">🎯 支出カテゴリ TOP 3</div><div class="card-b" id="top3"></div></div>
+            <div class="card"><div class="card-h">📊 月別サマリー</div><div class="card-b"><p style="font-size:11px;color:var(--muted);margin-bottom:10px">クリックで月の全明細を確認。</p><div id="mSum" class="scr"></div></div></div>
+            <div class="card"><div class="card-h">🎯 支出カテゴリ TOP 3</div><div class="card-b"><p style="font-size:11px;color:var(--muted);margin-bottom:10px">クリックで内訳を確認。</p><div id="top3"></div></div></div>
         </div>
     </div>
 </div>
@@ -320,6 +322,20 @@ function getIncName(r) {
     return '未分類';
 }
 
+/* ─── 月別サマリーからのドリルダウン（追加） ─── */
+function openMonthTxns(month) {
+    $('mTtl').textContent = month + ' の明細';
+    setBack(null); // トップレベル扱いのため、戻るボタンは非表示
+    const txns = F.filter(r => {
+        const t = r['計算対象'] === 1;
+        const mk = (r['日付']||'').substring(0,7);
+        return t && mk === month;
+    });
+    const bc = `<div class="bc"><span class="bc-c">${month} の全明細</span></div>`;
+    renderTxnTable($('mBody'), txns, bc);
+    showM();
+}
+
 /* ─── L1: 大項目 list ─── */
 function openL1(type){
     $('mTtl').textContent=type==='income'?'💰 収入の内訳':'📊 支出の内訳';
@@ -375,6 +391,7 @@ function openL2(catName,type){
         const pct=((st.a/total)*100).toFixed(1);
         return drRow(name,fmt(st.a),pct+'%  ·  '+st.c+'件','📁','',`openL3Cat('${esc(catName)}','${esc(name)}','${type}')`);
     }).join('');
+    showM(); // ダッシュボードから直接呼ばれた時のために追加
 }
 
 /* ─── L3: 月別フォルダ (Expense) ─── */
@@ -389,6 +406,7 @@ function openL3Cat(catName,subName,type){
     renderMonthFolders($('mBody'),txns,bc,function(month){
         return `openL4Cat('${esc(catName)}','${esc(subName)}','${month}','${type}')`;
     });
+    showM(); // 追加
 }
 
 /* ─── L4: 明細 (Expense) ─── */
@@ -401,6 +419,7 @@ function openL4Cat(catName,subName,month,type){
     });
     const bc=`<div class="bc"><span class="bc-c">${catName}</span><span class="bc-s">›</span><span class="bc-c">${subName}</span><span class="bc-s">›</span><span class="bc-c">${month}</span></div>`; // シンプル化
     renderTxnTable($('mBody'),txns,bc);
+    showM(); // 追加
 }
 
 /* ─── 収入専用のドリルダウン（L2: 月別フォルダ） ─── */
@@ -415,6 +434,7 @@ function openL2Inc(itemName) {
     renderMonthFolders($('mBody'), txns, bc, function(month){
         return `openL3Inc('${esc(itemName)}', '${month}')`;
     });
+    showM(); // 追加
 }
 
 /* ─── 収入専用のドリルダウン（L3: 明細） ─── */
@@ -428,6 +448,7 @@ function openL3Inc(itemName, month) {
     setBack(() => openL2Inc(itemName)); // L2の月一覧に戻る
     const bc=`<div class="bc"><span class="bc-c">${itemName}</span><span class="bc-s">›</span><span class="bc-c">${month}</span></div>`; // シンプル化
     renderTxnTable($('mBody'), txns, bc);
+    showM(); // 追加
 }
 
 /* ─── Ranking drill: L1→months→明細 ─── */
@@ -456,6 +477,7 @@ function openRkL2(itemName,month,filterType){
     });
     const bc=`<div class="bc"><span class="bc-c">${itemName}</span><span class="bc-s">›</span><span class="bc-c">${month}</span></div>`; // シンプル化
     renderTxnTable($('mBody'),txns,bc);
+    showM(); // 追加
 }
 
 /* ═══ Shared renderers ═══ */
@@ -551,19 +573,19 @@ function rForecast(period){
     $('fA').textContent=fmt(an);$('fS').textContent=fmt(sg);$('fM').textContent=fmt(Math.round(sg/12));
 }
 
-/* ══════ Monthly ══════ */
+/* ══════ Monthly (クリックイベント追加) ══════ */
 function rMonth(mo){
     const el=$('mSum');const ks=Object.keys(mo).sort().reverse().slice(0,12);
     if(!ks.length){el.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">データなし</p>';return}
-    el.innerHTML=ks.map(m=>`<div class="mo"><span class="mo-l">${m}</span><div class="mo-a"><span class="mo-i">+${fmt(mo[m].i)}</span><span class="mo-e">-${fmt(mo[m].e)}</span></div></div>`).join('');
+    el.innerHTML=ks.map(m=>`<div class="mo" onclick="openMonthTxns('${m}')"><span class="mo-l">${m}</span><div class="mo-a"><span class="mo-i">+${fmt(mo[m].i)}</span><span class="mo-e">-${fmt(mo[m].e)}</span></div></div>`).join('');
 }
 
-/* ══════ Top 3 ══════ */
+/* ══════ Top 3 (クリックイベント追加) ══════ */
 function rTop3(ec){
     const el=$('top3');const s=Object.entries(ec).sort((a,b)=>b[1]-a[1]).slice(0,3);
     if(!s.length){el.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">データなし</p>';return}
     const mx=s[0][1];const md=['🥇','🥈','🥉'];
-    el.innerHTML=s.map(([n,v],i)=>`<div class="tc"><div class="tc-h"><span class="tc-n">${md[i]} ${n}</span><span class="tc-v">${fmt(v)}</span></div><div class="tc-bar"><div class="tc-fill" style="width:${((v/mx)*100).toFixed(0)}%"></div></div></div>`).join('');
+    el.innerHTML=s.map(([n,v],i)=>`<div class="tc" onclick="openL2('${esc(n)}', 'expense')"><div class="tc-h"><span class="tc-n">${md[i]} ${n}</span><span class="tc-v">${fmt(v)}</span></div><div class="tc-bar"><div class="tc-fill" style="width:${((v/mx)*100).toFixed(0)}%"></div></div></div>`).join('');
 }
 
 /* ══════ PDF ══════ */
