@@ -118,8 +118,15 @@
         .modal{background:var(--surface);border-radius:20px;width:92%;max-width:680px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 48px rgba(0,0,0,.15);animation:mIn .2s ease}
         .m-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1.5px solid var(--border);flex-shrink:0}
         .m-ttl{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+        
+        /* ✕ボタン */
         .m-x{width:34px;height:34px;border-radius:10px;border:none;background:var(--bg);color:var(--sub);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;font-weight:bold}
         .m-x:hover{background:#e2ebe8;color:var(--text)}
+
+        /* ←戻るボタンのスタイル */
+        .m-back{padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--sub);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s;font-family:inherit;}
+        .m-back:hover{background:var(--bg);color:var(--text);border-color:var(--c);}
+
         .m-body{padding:20px 22px;overflow-y:auto;flex:1}
 
         .m-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
@@ -139,12 +146,10 @@
         .dr-pct{font-size:11px;color:var(--muted);margin-top:1px}
         .dr-chev{color:var(--muted);font-size:18px;margin-left:8px;flex-shrink:0}
 
-        /* Breadcrumb */
+        /* Breadcrumb (シンプル化) */
         .bc{display:flex;align-items:center;gap:6px;margin-bottom:16px;flex-wrap:wrap}
-        .bc-b{padding:5px 12px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);font-size:11px;font-weight:700;color:var(--c);cursor:pointer;transition:all .15s;font-family:inherit}
-        .bc-b:hover{background:var(--bg);border-color:var(--c)}
+        .bc-c{font-size:12px;font-weight:700; color:var(--text)}
         .bc-s{color:var(--muted);font-size:11px}
-        .bc-c{font-size:12px;font-weight:700}
 
         @keyframes mIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 
@@ -216,7 +221,7 @@
     <div class="modal" onclick="event.stopPropagation()">
         <div class="m-hdr">
             <div style="display:flex;align-items:center;gap:12px">
-                <button id="mBack" class="m-x" style="display:none;font-size:18px;" onclick="if(backAction)backAction()">←</button>
+                <button id="mBack" class="m-back" style="display:none;" onclick="if(backAction)backAction()">← 戻る</button>
                 <div class="m-ttl" id="mTtl">内訳</div>
             </div>
             <button class="m-x" onclick="closeM()">✕</button>
@@ -228,13 +233,13 @@
 
 <script>
 let D=[],F=[],CI=null,incCat={},expCat={};
-let backAction=null; // 追加: 戻るボタン用のアクション保持
+let backAction=null; // 戻るボタン用のアクション保持
 
 const $=id=>document.getElementById(id);
 const fmt=n=>'¥'+Math.abs(n).toLocaleString('ja-JP');
 const esc=s=>s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
 
-// 追加: 戻るボタンの表示・非表示とアクションセット
+// 戻るボタンの表示・非表示とアクションセット
 function setBack(fn) {
     backAction = fn;
     $('mBack').style.display = fn ? 'flex' : 'none';
@@ -300,11 +305,11 @@ function upd(period){
 
 /* ══════ MODAL ══════ */
 function showM(){$('ov').classList.add('on');document.body.style.overflow='hidden'}
-// 修正: 閉じる時に戻るアクションをリセット
+// 閉じる時に戻るアクションをリセット
 function closeM(){$('ov').classList.remove('on');document.body.style.overflow='';setBack(null);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
 
-// 追加: 収入の名称を「中項目」優先、なければ「内容」で取得するロジック（その他入金などの丸めも回避）
+// 収入の名称取得ロジック
 function getIncName(r) {
     const sub = r['中項目'] || '';
     const con = r['内容'] || '';
@@ -322,7 +327,6 @@ function openL1(type){
     const body=$('mBody');
 
     if (type === 'income') {
-        // 修正: 収入の場合は大項目を無視し、中項目・内容で直接グループ化
         const byItem = {};
         F.forEach(r => {
             const a = r['金額（円）'], t = r['計算対象'] === 1;
@@ -342,7 +346,6 @@ function openL1(type){
         }).join('');
         showM();
     } else {
-        // 支出は従来通りの大項目グループ化
         const cats=expCat;
         const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
         if(!sorted.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:40px 0">データなし</p>';showM();return}
@@ -367,7 +370,7 @@ function openL2(catName,type){
     txns.forEach(r=>{const s=r['中項目']||'不明';if(!bySub[s])bySub[s]={c:0,a:0};bySub[s].c++;bySub[s].a+=Math.abs(r['金額（円）'])});
     const sorted=Object.entries(bySub).sort((a,b)=>b[1].a-a[1].a);
     const total=sorted.reduce((s,i)=>s+i[1].a,0);
-    const bc=`<div class="bc"><button class="bc-b" onclick="openL1('${type}')">← ${type==='income'?'収入':'支出'}</button><span class="bc-s">›</span><span class="bc-c">${catName}</span></div>`;
+    const bc=`<div class="bc"><span class="bc-c">${catName}</span></div>`; // シンプル化
     $('mBody').innerHTML=bc+sorted.map(([name,st])=>{
         const pct=((st.a/total)*100).toFixed(1);
         return drRow(name,fmt(st.a),pct+'%  ·  '+st.c+'件','📁','',`openL3Cat('${esc(catName)}','${esc(name)}','${type}')`);
@@ -382,10 +385,7 @@ function openL3Cat(catName,subName,type){
         const a=r['金額（円）'],t=r['計算対象']===1,c=r['大項目']||'不明',s=r['中項目']||'不明';
         return type==='income'?(a>0&&t&&c===catName&&s===subName):(a<0&&t&&c===catName&&s===subName);
     });
-    const bc=`<div class="bc">
-        <button class="bc-b" onclick="openL1('${type}')">← ${type==='income'?'収入':'支出'}</button><span class="bc-s">›</span>
-        <button class="bc-b" onclick="openL2('${esc(catName)}','${type}')">${catName}</button><span class="bc-s">›</span>
-        <span class="bc-c">${subName}</span></div>`;
+    const bc=`<div class="bc"><span class="bc-c">${catName}</span><span class="bc-s">›</span><span class="bc-c">${subName}</span></div>`; // シンプル化
     renderMonthFolders($('mBody'),txns,bc,function(month){
         return `openL4Cat('${esc(catName)}','${esc(subName)}','${month}','${type}')`;
     });
@@ -393,20 +393,17 @@ function openL3Cat(catName,subName,type){
 
 /* ─── L4: 明細 (Expense) ─── */
 function openL4Cat(catName,subName,month,type){
+    $('mTtl').textContent=month; // タイトルを月に
     setBack(() => openL3Cat(catName, subName, type)); // 戻るアクションをセット
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1,c=r['大項目']||'不明',s=r['中項目']||'不明',mk=(r['日付']||'').substring(0,7);
         return mk===month&&t&&c===catName&&s===subName&&(type==='income'?a>0:a<0);
     });
-    const bc=`<div class="bc">
-        <button class="bc-b" onclick="openL1('${type}')">← ${type==='income'?'収入':'支出'}</button><span class="bc-s">›</span>
-        <button class="bc-b" onclick="openL2('${esc(catName)}','${type}')">${catName}</button><span class="bc-s">›</span>
-        <button class="bc-b" onclick="openL3Cat('${esc(catName)}','${esc(subName)}','${type}')">${subName}</button><span class="bc-s">›</span>
-        <span class="bc-c">${month}</span></div>`;
+    const bc=`<div class="bc"><span class="bc-c">${catName}</span><span class="bc-s">›</span><span class="bc-c">${subName}</span><span class="bc-s">›</span><span class="bc-c">${month}</span></div>`; // シンプル化
     renderTxnTable($('mBody'),txns,bc);
 }
 
-/* ─── 追加: 収入専用のドリルダウン（L2: 月別フォルダ） ─── */
+/* ─── 収入専用のドリルダウン（L2: 月別フォルダ） ─── */
 function openL2Inc(itemName) {
     $('mTtl').textContent = itemName;
     setBack(() => openL1('income')); // L1収入に戻る
@@ -414,24 +411,22 @@ function openL2Inc(itemName) {
         const a = r['金額（円）'], t = r['計算対象'] === 1;
         return a > 0 && t && getIncName(r) === itemName;
     });
-    const bc=`<div class="bc"><button class="bc-b" onclick="openL1('income')">← 収入</button><span class="bc-s">›</span><span class="bc-c">${itemName}</span></div>`;
+    const bc=`<div class="bc"><span class="bc-c">${itemName}</span></div>`; // シンプル化
     renderMonthFolders($('mBody'), txns, bc, function(month){
         return `openL3Inc('${esc(itemName)}', '${month}')`;
     });
 }
 
-/* ─── 追加: 収入専用のドリルダウン（L3: 明細） ─── */
+/* ─── 収入専用のドリルダウン（L3: 明細） ─── */
 function openL3Inc(itemName, month) {
+    $('mTtl').textContent = month; // タイトルを月に
     const txns = F.filter(r => {
         const a = r['金額（円）'], t = r['計算対象'] === 1;
         const mk = (r['日付']||'').substring(0,7);
         return a > 0 && t && mk === month && getIncName(r) === itemName;
     });
     setBack(() => openL2Inc(itemName)); // L2の月一覧に戻る
-    const bc=`<div class="bc">
-        <button class="bc-b" onclick="openL1('income')">← 収入</button><span class="bc-s">›</span>
-        <button class="bc-b" onclick="openL2Inc('${esc(itemName)}')">${itemName}</button><span class="bc-s">›</span>
-        <span class="bc-c">${month}</span></div>`;
+    const bc=`<div class="bc"><span class="bc-c">${itemName}</span><span class="bc-s">›</span><span class="bc-c">${month}</span></div>`; // シンプル化
     renderTxnTable($('mBody'), txns, bc);
 }
 
@@ -452,15 +447,14 @@ function openRkL1(itemName,filterType){
 }
 
 function openRkL2(itemName,month,filterType){
+    $('mTtl').textContent=month; // タイトルを月に
     setBack(() => openRkL1(itemName, filterType));
     const txns=F.filter(r=>{
         const a=r['金額（円）'],t=r['計算対象']===1,mk=(r['日付']||'').substring(0,7);
         if(mk!==month||!t||a>=0)return false;
         return filterType==='sub'?(r['中項目']||'不明')===itemName:(r['内容']||'不明')===itemName;
     });
-    const bc=`<div class="bc">
-        <button class="bc-b" onclick="openRkL1('${esc(itemName)}','${filterType}')">← ${itemName}</button><span class="bc-s">›</span>
-        <span class="bc-c">${month}</span></div>`;
+    const bc=`<div class="bc"><span class="bc-c">${itemName}</span><span class="bc-s">›</span><span class="bc-c">${month}</span></div>`; // シンプル化
     renderTxnTable($('mBody'),txns,bc);
 }
 
